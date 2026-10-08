@@ -19,9 +19,8 @@ export const setupServer = async () => {
   app.use(express.json());
   app.use(logger);
 
-  app.use('/notes', notesRouter);
+  app.use(notesRouter);
 
-  // Обработка ошибок от celebrate
   app.use(errors());
 
   app.use(notFoundHandler);

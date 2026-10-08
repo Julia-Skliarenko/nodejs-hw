@@ -8,25 +8,29 @@ export const getAllNotes = async (req, res) => {
   const limitNumber = Number(perPage);
   const skip = (pageNumber - 1) * limitNumber;
 
-  const filter = {};
+  const notesQuery = Note.find();
+  const countQuery = Note.find();
 
   if (tag) {
-    filter.tag = tag;
+    notesQuery.where('tag').equals(tag);
+    countQuery.where('tag').equals(tag);
   }
 
   if (search) {
-    filter.$or = [
+    const searchFilter = [
       { title: { $regex: search,$options: 'i' } },
       { content: { $regex: search,$options: 'i' } },
     ];
+    notesQuery.where({ $or: searchFilter });
+    countQuery.where({ $or: searchFilter });
   }
 
-  const totalNotes = await Note.countDocuments(filter);
-  const totalPages = Math.ceil(totalNotes / limitNumber);
+  const [totalNotes, notes] = await Promise.all([
+    countQuery.countDocuments(),
+    notesQuery.skip(skip).limit(limitNumber),
+  ]);
 
-  const notes = await Note.find(filter)
-    .skip(skip)
-    .limit(limitNumber);
+  const totalPages = Math.ceil(totalNotes / limitNumber);
 
   res.status(200).json({
     status: 200,
