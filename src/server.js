@@ -1,16 +1,17 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { logger } from './middlewares/logger.js';
-import { notFoundHandler } from './middlewares/notFoundHandler.js';
-import { errorHandler } from './middlewares/errorHandler.js';
+import { logger } from './middleware/logger.js';
+import { notFoundHandler } from './middleware/notFoundHandler.js';
+import { errorHandler } from './middleware/errorHandler.js';
 import notesRouter from './routes/notesRoutes.js';
+import { connectMongoDB } from './db/connectMongoDB.js'; // 1. Добавили импорт
 
 dotenv.config();
 
 const PORT = process.env.PORT || 3000;
 
-export const setupServer = () => {
+export const setupServer = async () => { // 2. Добавили async
   const app = express();
 
   app.use(cors());
@@ -22,7 +23,11 @@ export const setupServer = () => {
   app.use(notFoundHandler);
   app.use(errorHandler);
 
+  await connectMongoDB(); // 3. Подключаем базу ДО старта сервера
+
   app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
   });
 };
+
+setupServer();
