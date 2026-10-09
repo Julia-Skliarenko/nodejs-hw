@@ -17,13 +17,15 @@ const noteSchema = new Schema(
       type: String,
       enum: TAGS,
       default: 'Todo',
-      index: true,
+      // Убрали index: true отсюда!
     },
   },
   {
     timestamps: true,
     versionKey: false,
-  },
+  }
 );
+
+noteSchema.index({ tag: 1 });
 
 export const Note = model('Note', noteSchema);
