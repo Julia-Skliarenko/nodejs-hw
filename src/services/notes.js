@@ -1,36 +1,23 @@
 import { Note } from '../models/note.js';
 
-export const getAllNotes = async () => {
-  return await Note.find();
+export const getAllNotesService = async (userId) => {
+  return await Note.find({ userId });
 };
 
-export const getNoteById = async (noteId) => {
-  return await Note.findById(noteId);
+export const getNoteByIdService = async (noteId, userId) => {
+  return await Note.findOne({ _id: noteId, userId });
 };
 
-export const createNote = async (payload) => {
+export const createNoteService = async (payload) => {
   return await Note.create(payload);
 };
 
-export const updateNote = async (noteId, payload, options = {}) => {
-  const rawResult = await Note.findOneAndUpdate(
-    { _id: noteId },
-    payload,
-    {
-      new: true,
-      includeResultMetadata: true,
-      ...options,
-    },
-  );
-
-  if (!rawResult || !rawResult.value) return null;
-
-  return {
-    note: rawResult.value,
-    isNew: Boolean(rawResult?.lastErrorObject?.updatedExisting === false),
-  };
+export const updateNoteService = async (noteId, userId, payload) => {
+  return await Note.findOneAndUpdate({ _id: noteId, userId }, payload, {
+    new: true,
+  });
 };
 
-export const deleteNote = async (noteId) => {
-  return await Note.findOneAndDelete({ _id: noteId });
+export const deleteNoteService = async (noteId, userId) => {
+  return await Note.findOneAndDelete({ _id: noteId, userId });
 };
