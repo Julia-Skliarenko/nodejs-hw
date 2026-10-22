@@ -9,8 +9,17 @@ import {
 
 export const getAllNotes = async (req, res) => {
   const userId = req.user._id;
-  const notes = await getAllNotesService(userId);
-  res.status(200).json(notes);
+  const { page, perPage, tag, search } = req.query;
+
+  const result = await getAllNotesService({
+    userId,
+    page,
+    perPage,
+    tag,
+    search,
+  });
+
+  res.status(200).json(result);
 };
 
 export const getNoteById = async (req, res) => {
@@ -56,5 +65,5 @@ export const deleteNote = async (req, res) => {
     throw createHttpError(404, 'Note not found');
   }
 
-  res.status(204).send();
+  res.status(200).json(note);
 };

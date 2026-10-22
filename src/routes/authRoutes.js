@@ -5,17 +5,17 @@ import {
   loginUserSchema,
 } from '../validations/authValidation.js';
 import {
-  registerUserController,
-  loginUserController,
-  refreshUserSessionController,
-  logoutUserController,
+  registerUser,
+  loginUser,
+  refreshUserSession,
+  logoutUser,
 } from '../controllers/authController.js';
 
 const router = Router();
 
-router.post('/register', celebrate(registerUserSchema), registerUserController);
-router.post('/login', celebrate(loginUserSchema), loginUserController);
-router.post('/refresh', refreshUserSessionController);
-router.post('/logout', logoutUserController);
+router.post('/auth/register', celebrate(registerUserSchema), registerUser);
+router.post('/auth/login', celebrate(loginUserSchema), loginUser);
+router.post('/auth/refresh', refreshUserSession);
+router.post('/auth/logout', logoutUser);
 
 export default router;
