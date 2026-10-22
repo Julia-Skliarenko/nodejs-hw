@@ -74,7 +74,7 @@ export const loginUser = async (payload) => {
   return user;
 };
 
-export const refreshUsersSession = async ({ sessionId, refreshToken }) => {
+export const refreshUsersSession = async ({ sessionId, refreshToken, res }) => {
   const session = await Session.findOne({
     _id: sessionId,
     refreshToken,
@@ -88,6 +88,12 @@ export const refreshUsersSession = async ({ sessionId, refreshToken }) => {
     new Date() > new Date(session.refreshTokenValidUntil);
 
   if (isSessionTokenExpired) {
+    await Session.deleteOne({ _id: sessionId });
+    if (res) {
+      res.clearCookie('sessionId');
+      res.clearCookie('accessToken');
+      res.clearCookie('refreshToken');
+    }
     throw createHttpError(401, 'Session token expired');
   }
 
