@@ -6,38 +6,14 @@ import fs from 'node:fs/promises';
 import createHttpError from 'http-errors';
 import { User } from '../models/user.js';
 import { Session } from '../models/session.js';
-import { FIFTEEN_MINUTES, ONE_DAY } from '../constants/time.js';
 import { sendEmail } from '../utils/sendMail.js';
 import * as authServices from '../services/auth.js';
-
-const setSessionCookies = (res, session) => {
-  const commonOptions = {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
-  };
-
-  res.cookie('accessToken', session.accessToken, {
-    ...commonOptions,
-    maxAge: FIFTEEN_MINUTES,
-  });
-
-  res.cookie('refreshToken', session.refreshToken, {
-    ...commonOptions,
-    maxAge: ONE_DAY,
-  });
-
-  res.cookie('sessionId', session._id, {
-    ...commonOptions,
-    maxAge: ONE_DAY,
-  });
-};
 
 export const registerUser = async (req, res) => {
   const newUser = await authServices.registerUser(req.body);
   const session = await authServices.loginUser(req.body);
 
-  setSessionCookies(res, session);
+  authServices.setSessionCookies(res, session);
 
   res.status(201).json({
     status: 201,
@@ -50,7 +26,7 @@ export const loginUser = async (req, res) => {
   const session = await authServices.loginUser(req.body);
   const user = await User.findById(session.userId);
 
-  setSessionCookies(res, session);
+  authServices.setSessionCookies(res, session);
 
   res.status(200).json({
     status: 200,
@@ -63,12 +39,15 @@ export const loginUser = async (req, res) => {
 };
 
 export const refreshUserSession = async (req, res) => {
-  const session = await authServices.refreshUsersSession({
-    sessionId: req.cookies.sessionId,
-    refreshToken: req.cookies.refreshToken,
-  });
+  const session = await authServices.refreshUsersSession(
+    {
+      sessionId: req.cookies.sessionId,
+      refreshToken: req.cookies.refreshToken,
+    },
+    res,
+  );
 
-  setSessionCookies(res, session);
+  authServices.setSessionCookies(res, session);
 
   res.status(200).json({
     status: 200,
@@ -97,7 +76,6 @@ export const requestResetEmail = async (req, res) => {
   const user = await User.findOne({ email: req.body.email });
 
   if (!user) {
-    // Возвращаем 200 и тот же месседж в целях безопасности, чтобы не раскрывать наличие email в базе
     return res.status(200).json({
       status: 200,
       message: 'Password reset email sent successfully',
