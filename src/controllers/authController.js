@@ -3,7 +3,7 @@ import {
   setSessionCookies,
   registerUser as registerUserService,
   loginUser as loginUserService,
-  refreshUserSession as refreshUserSessionService,
+  refreshUsersSession as refreshUserSessionService,
   logoutUser as logoutUserService,
   requestResetToken,
   resetPassword as resetPasswordService,
