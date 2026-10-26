@@ -1,9 +1,12 @@
 import crypto from 'node:crypto';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import createHttpError from 'http-errors';
 import { User } from '../models/user.js';
 import { Session } from '../models/session.js';
 import { FIFTEEN_MINUTES, ONE_DAY } from '../constants/time.js';
+import { sendMail } from '../utils/sendMail.js';
+import { getTemplate } from '../utils/handlebars.js';
 
 export const createSession = async (userId) => {
   const accessToken = crypto.randomBytes(30).toString('base64');
@@ -104,4 +107,62 @@ export const refreshUsersSession = async ({ sessionId, refreshToken, res }) => {
 
 export const logoutUser = async (sessionId) => {
   await Session.deleteOne({ _id: sessionId });
+};
+
+export const requestResetToken = async (email) => {
+  const user = await User.findOne({ email });
+  if (!user) {
+    throw createHttpError(404, 'User not found!');
+  }
+
+  const resetToken = jwt.sign(
+    { sub: user._id, email: user.email },
+    process.env.JWT_SECRET,
+    { expiresIn: '15m' },
+  );
+
+  const resetLink = `${process.env.FRONTEND_DOMAIN}/reset-password?token=${resetToken}`;
+
+  const html = await getTemplate('reset-password-email', {
+    name: user.name,
+    resetLink,
+  });
+
+  try {
+    await sendMail({
+      to: email,
+      subject: 'Reset your password',
+      html,
+    });
+  } catch {
+    throw createHttpError(
+      500,
+      'Failed to send the email, please try again later.',
+    );
+  }
+};
+
+export const resetPassword = async (payload) => {
+  let entries;
+
+  try {
+    entries = jwt.verify(payload.token, process.env.JWT_SECRET);
+  } catch {
+    throw createHttpError(401, 'Invalid or expired token');
+  }
+
+  const user = await User.findOne({
+    email: entries.email,
+    _id: entries.sub,
+  });
+
+  if (!user) {
+    throw createHttpError(404, 'User not found');
+  }
+
+  const hashedPassword = await bcrypt.hash(payload.password, 10);
+
+  await User.updateOne({ _id: user._id }, { password: hashedPassword });
+
+  await Session.deleteMany({ userId: user._id });
 };

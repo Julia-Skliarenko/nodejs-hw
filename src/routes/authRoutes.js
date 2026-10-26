@@ -1,21 +1,44 @@
 import { Router } from 'express';
-import { celebrate } from 'celebrate';
-import {
-  registerUserSchema,
-  loginUserSchema,
-} from '../validations/authValidation.js';
 import {
   registerUser,
   loginUser,
   refreshUserSession,
   logoutUser,
+  requestResetEmailController,
+  resetPasswordController
 } from '../controllers/authController.js';
 
 const router = Router();
 
-router.post('/auth/register', celebrate(registerUserSchema), registerUser);
-router.post('/auth/login', celebrate(loginUserSchema), loginUser);
-router.post('/auth/refresh', refreshUserSession);
-router.post('/auth/logout', logoutUser);
+router.post(
+  '/register',
+  registerUser,
+);
+
+router.post(
+  '/login',
+  loginUser,
+);
+
+router.post(
+  '/refresh',
+  refreshUserSession,
+);
+
+router.post(
+  '/logout',
+  logoutUser,
+);
+
+router.post(
+  '/request-reset-email',
+  requestResetEmailController,
+);
+
+// Роут сброса пароля ровно по ТЗ из задания:
+router.post(
+  '/reset-password',
+  resetPasswordController,
+);
 
 export default router;
