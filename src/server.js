@@ -27,9 +27,11 @@ export const setupServer = async () => {
   app.use(notesRouter);
   app.use(userRoutes);
 
-  app.use(errors());
-
+  // Сначала обрабатываем несуществующие маршруты (404)
   app.use(notFoundHandler);
+
+  // Затем подключаем ошибки celebrate и общий errorHandler
+  app.use(errors());
   app.use(errorHandler);
 
   await connectMongoDB();
