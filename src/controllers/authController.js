@@ -46,6 +46,9 @@ export const loginUser = async (req, res) => {
     throw createHttpError(401, 'Invalid credentials');
   }
 
+  // Удаляем существующую сессию пользователя перед созданием новой[cite: 6]
+  await Session.deleteOne({ userId: user._id });
+
   const session = await createSession(user._id);
   setSessionCookies(res, session);
 
