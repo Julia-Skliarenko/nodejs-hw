@@ -74,7 +74,12 @@ export const loginUser = async (payload) => {
 
   await Session.deleteOne({ userId: user._id });
 
-  return user;
+  const session = await createSession(user._id);
+
+  return {
+    user,
+    session,
+  };
 };
 
 export const refreshUsersSession = async ({ sessionId, refreshToken, res }) => {
