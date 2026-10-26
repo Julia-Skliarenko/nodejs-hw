@@ -3,64 +3,141 @@ import jwt from 'jsonwebtoken';
 import handlebars from 'handlebars';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import crypto from 'node:crypto';
 import createHttpError from 'http-errors';
 import { User } from '../models/user.js';
 import { Session } from '../models/session.js';
 import { sendEmail } from '../utils/sendMail.js';
-import * as authServices from '../services/auth.js';
+import { FIFTEEN_MINUTES, ONE_DAY } from '../constants/time.js';
+
+const createSession = async (userId) => {
+  await Session.deleteOne({ userId });
+
+  const accessToken = crypto.randomBytes(30).toString('base64');
+  const refreshToken = crypto.randomBytes(30).toString('base64');
+
+  return await Session.create({
+    userId,
+    accessToken,
+    refreshToken,
+    accessTokenValidUntil: new Date(Date.now() + FIFTEEN_MINUTES),
+    refreshTokenValidUntil: new Date(Date.now() + ONE_DAY),
+  });
+};
+
+const setSessionCookies = (res, session) => {
+  const commonOptions = {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none',
+  };
+
+  res.cookie('accessToken', session.accessToken, {
+    ...commonOptions,
+    maxAge: FIFTEEN_MINUTES,
+  });
+
+  res.cookie('refreshToken', session.refreshToken, {
+    ...commonOptions,
+    maxAge: ONE_DAY,
+  });
+
+  res.cookie('sessionId', session._id, {
+    ...commonOptions,
+    maxAge: ONE_DAY,
+  });
+};
 
 export const registerUser = async (req, res) => {
-  const newUser = await authServices.registerUser(req.body);
-  const session = await authServices.loginUser(req.body);
+  const existingUser = await User.findOne({ email: req.body.email });
+  if (existingUser) {
+    throw createHttpError(400, 'Email in use');
+  }
 
-  authServices.setSessionCookies(res, session);
+  const hashedPassword = await bcrypt.hash(req.body.password, 10);
+
+  const user = await User.create({
+    ...req.body,
+    password: hashedPassword,
+  });
+
+  const session = await createSession(user._id);
+  setSessionCookies(res, session);
+
+  const userResponse = user.toObject();
+  delete userResponse.password;
 
   res.status(201).json({
     status: 201,
     message: 'Successfully registered a user!',
-    data: newUser,
+    data: userResponse,
   });
 };
 
 export const loginUser = async (req, res) => {
-  const session = await authServices.loginUser(req.body);
-  const user = await User.findById(session.userId);
+  const user = await User.findOne({ email: req.body.email });
+  if (!user) {
+    throw createHttpError(401, 'Invalid credentials');
+  }
 
-  authServices.setSessionCookies(res, session);
+  const isEqual = await bcrypt.compare(req.body.password, user.password);
+  if (!isEqual) {
+    throw createHttpError(401, 'Invalid credentials');
+  }
+
+  const session = await createSession(user._id);
+  setSessionCookies(res, session);
+
+  const userResponse = user.toObject();
+  delete userResponse.password;
 
   res.status(200).json({
     status: 200,
     message: 'Successfully logged in an auth user!',
     data: {
       accessToken: session.accessToken,
-      user,
+      user: userResponse,
     },
   });
 };
 
 export const refreshUserSession = async (req, res) => {
-  const session = await authServices.refreshUsersSession(
-    {
-      sessionId: req.cookies.sessionId,
-      refreshToken: req.cookies.refreshToken,
-    },
-    res,
-  );
+  const { sessionId, refreshToken } = req.cookies;
 
-  authServices.setSessionCookies(res, session);
+  const session = await Session.findOne({
+    _id: sessionId,
+    refreshToken,
+  });
+
+  if (!session) {
+    throw createHttpError(401, 'Session not found');
+  }
+
+  if (new Date() > new Date(session.refreshTokenValidUntil)) {
+    await Session.deleteOne({ _id: session._id });
+    res.clearCookie('sessionId');
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
+    throw createHttpError(401, 'Session token expired');
+  }
+
+  await Session.deleteOne({ _id: session._id });
+
+  const newSession = await createSession(session.userId);
+  setSessionCookies(res, newSession);
 
   res.status(200).json({
     status: 200,
     message: 'Successfully refreshed a session!',
     data: {
-      accessToken: session.accessToken,
+      accessToken: newSession.accessToken,
     },
   });
 };
 
 export const logoutUser = async (req, res) => {
   if (req.cookies.sessionId) {
-    await authServices.logoutUser(req.cookies.sessionId);
+    await Session.deleteOne({ _id: req.cookies.sessionId });
   }
 
   res.clearCookie('sessionId');
